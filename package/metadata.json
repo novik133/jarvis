@@ -1,0 +1,25 @@
+{
+    "KPlugin": {
+        "Id": "org.kde.plasma.jarvis",
+        "Name": "Jarvis AI Assistant",
+        "Description": "AI assistant inspired by J.A.R.V.I.S. from Iron Man, powered by local LLM",
+        "Icon": "jarvis-ai",
+        "Authors": [
+            {
+                "Name": "Kamil 'Novik' Nowicki",
+                "Email": "kamil@kamilnowicki.com"
+            }
+        ],
+        "Category": "Utilities",
+        "License": "GPL-3.0",
+        "Version": "0.1.0",
+        "Website": "https://github.com/novik133/jarvis",
+        "BugReportUrl": "https://github.com/novik133/jarvis/issues",
+        "Copyright": "© 2026 Kamil Nowicki"
+    },
+    "KPackageStructure": "Plasma/Applet",
+    "X-Plasma-API": "declarativeappletscript",
+    "X-Plasma-API-Minimum-Version": "6.0",
+    "X-Plasma-MainScript": "ui/main.qml",
+    "X-Plasma-ConfigUi-File": "config/config.qml"
+}

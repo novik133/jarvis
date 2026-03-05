@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="coreGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="1"/>
+      <stop offset="30%" stop-color="#4fc3f7" stop-opacity="0.9"/>
+      <stop offset="60%" stop-color="#0288d1" stop-opacity="0.7"/>
+      <stop offset="100%" stop-color="#01579b" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="bgGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#1a237e"/>
+      <stop offset="100%" stop-color="#0d1117"/>
+    </radialGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="softGlow">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="250" fill="url(#bgGrad)" stroke="#1565c0" stroke-width="4"/>
+
+  <!-- Outer glow ring -->
+  <circle cx="256" cy="256" r="200" fill="none" stroke="#4fc3f7" stroke-width="2" opacity="0.3" filter="url(#softGlow)"/>
+
+  <!-- Outer ring -->
+  <circle cx="256" cy="256" r="180" fill="none" stroke="#4fc3f7" stroke-width="3" opacity="0.7" filter="url(#glow)"/>
+
+  <!-- Ring segments (arc reactor style) -->
+  <g stroke="#4fc3f7" stroke-width="2.5" fill="none" opacity="0.8" filter="url(#glow)">
+    <!-- Top segment -->
+    <path d="M 256 86 A 170 170 0 0 1 396 166"/>
+    <!-- Right segment -->
+    <path d="M 416 256 A 170 170 0 0 1 336 396"/>
+    <!-- Bottom segment -->
+    <path d="M 256 426 A 170 170 0 0 1 116 346"/>
+    <!-- Left segment -->
+    <path d="M 96 256 A 170 170 0 0 1 176 116"/>
+  </g>
+
+  <!-- Middle ring -->
+  <circle cx="256" cy="256" r="130" fill="none" stroke="#29b6f6" stroke-width="2" opacity="0.6"/>
+
+  <!-- Inner decorative ring with dashes -->
+  <circle cx="256" cy="256" r="105" fill="none" stroke="#4fc3f7" stroke-width="1.5" stroke-dasharray="15 10" opacity="0.5"/>
+
+  <!-- Triangle markers (arc reactor style) -->
+  <g fill="#4fc3f7" opacity="0.8" filter="url(#glow)">
+    <polygon points="256,96 248,116 264,116"/>
+    <polygon points="416,256 396,248 396,264"/>
+    <polygon points="256,416 264,396 248,396"/>
+    <polygon points="96,256 116,264 116,248"/>
+  </g>
+
+  <!-- Core glow -->
+  <circle cx="256" cy="256" r="70" fill="url(#coreGlow)" filter="url(#softGlow)"/>
+
+  <!-- Inner core ring -->
+  <circle cx="256" cy="256" r="50" fill="none" stroke="#ffffff" stroke-width="2" opacity="0.8"/>
+
+  <!-- Core center -->
+  <circle cx="256" cy="256" r="25" fill="#e1f5fe" opacity="0.9"/>
+  <circle cx="256" cy="256" r="15" fill="#ffffff" opacity="0.95"/>
+
+  <!-- "J" letter in core -->
+  <text x="256" y="268" text-anchor="middle" font-family="sans-serif" font-weight="bold" font-size="28" fill="#0d47a1" opacity="0.9">J</text>
+
+  <!-- Connecting lines from core to ring -->
+  <g stroke="#4fc3f7" stroke-width="1.5" opacity="0.5">
+    <line x1="256" y1="206" x2="256" y2="126"/>
+    <line x1="306" y1="256" x2="386" y2="256"/>
+    <line x1="256" y1="306" x2="256" y2="386"/>
+    <line x1="206" y1="256" x2="126" y2="256"/>
+    <!-- Diagonal lines -->
+    <line x1="291" y1="221" x2="340" y2="172"/>
+    <line x1="291" y1="291" x2="340" y2="340"/>
+    <line x1="221" y1="291" x2="172" y2="340"/>
+    <line x1="221" y1="221" x2="172" y2="172"/>
+  </g>
+
+  <!-- Small dots on ring intersections -->
+  <g fill="#4fc3f7" opacity="0.9">
+    <circle cx="256" cy="126" r="4"/>
+    <circle cx="386" cy="256" r="4"/>
+    <circle cx="256" cy="386" r="4"/>
+    <circle cx="126" cy="256" r="4"/>
+    <circle cx="340" cy="172" r="4"/>
+    <circle cx="340" cy="340" r="4"/>
+    <circle cx="172" cy="340" r="4"/>
+    <circle cx="172" cy="172" r="4"/>
+  </g>
+</svg>
