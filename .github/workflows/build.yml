@@ -22,7 +22,7 @@ jobs:
             cmake g++ extra-cmake-modules \
             qt6-base-dev qt6-declarative-dev qt6-multimedia-dev qt6-speech-dev \
             libplasma-dev libkf6i18n-dev libkf6config-dev \
-            libpipewire-0.3-dev git curl
+            libpipewire-0.3-dev git curl zip
 
       - name: Build whisper.cpp
         run: |
@@ -69,7 +69,7 @@ jobs:
             cmake gcc-c++ extra-cmake-modules \
             qt6-qtbase-devel qt6-qtdeclarative-devel qt6-qtmultimedia-devel \
             qt6-qtspeech-devel kf6-plasma-devel kf6-ki18n-devel kf6-kconfig-devel \
-            pipewire-devel git
+            pipewire-devel git zip
 
       - name: Build whisper.cpp
         run: |
@@ -106,8 +106,8 @@ jobs:
           pacman -Syu --noconfirm \
             cmake gcc extra-cmake-modules \
             qt6-base qt6-declarative qt6-multimedia qt6-speech \
-            plasma-framework ki18n kconfig \
-            pipewire git base-devel
+            libplasma ki18n kconfig \
+            pipewire git base-devel zip
 
       - name: Build whisper.cpp
         run: |

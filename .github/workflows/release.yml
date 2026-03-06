@@ -24,7 +24,7 @@ jobs:
             cmake g++ extra-cmake-modules \
             qt6-base-dev qt6-declarative-dev qt6-multimedia-dev qt6-speech-dev \
             libplasma-dev libkf6i18n-dev libkf6config-dev \
-            libpipewire-0.3-dev git curl
+            libpipewire-0.3-dev git curl zip
 
       - name: Build whisper.cpp
         run: |

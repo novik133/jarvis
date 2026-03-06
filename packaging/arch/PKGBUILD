@@ -12,7 +12,7 @@ depends=(
     'qt6-declarative'
     'qt6-multimedia'
     'qt6-speech'
-    'plasma-framework'
+    'libplasma'
     'ki18n'
     'kconfig'
     'whisper.cpp'
