@@ -63,12 +63,12 @@ Everything runs locally — no cloud, no API keys, no data leaves your machine.
 %{_datadir}/icons/hicolor/*/apps/jarvis-ai.*
 
 %changelog
-* Thu Mar 06 2025 Kamil 'Novik' Nowicki <kamil@kamilnowicki.com> - 0.1.1-1
+* Thu Mar 06 2026 Kamil 'Novik' Nowicki <kamil@kamilnowicki.com> - 0.1.1-1
 - LLM token streaming via SSE — real-time response display
 - Sentence-based TTS pipeline
 - Piper TTS sentence-queue architecture
 - Native compilation optimizations
 - New streamingResponse Q_PROPERTY for QML
 
-* Wed Mar 05 2025 Kamil 'Novik' Nowicki <kamil@kamilnowicki.com> - 0.1.0-1
+* Wed Mar 05 2026 Kamil 'Novik' Nowicki <kamil@kamilnowicki.com> - 0.1.0-1
 - Initial release

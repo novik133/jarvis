@@ -23,7 +23,7 @@ jobs:
         run: |
           apt-get update
           apt-get install -y \
-            cmake g++ extra-cmake-modules debhelper \
+            cmake g++ extra-cmake-modules debhelper equivs \
             qt6-base-dev qt6-declarative-dev qt6-multimedia-dev qt6-speech-dev \
             libplasma-dev libkf6i18n-dev libkf6config-dev \
             libpipewire-0.3-dev git
@@ -37,6 +37,13 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release
           cmake --build /tmp/whisper.cpp/build -j$(nproc)
           cmake --install /tmp/whisper.cpp/build
+
+      - name: Install whisper development files
+        run: |
+          # Create a dummy package to satisfy build dependency
+          echo "libwhisper-dev local" > /tmp/dummy
+          equivs-build /tmp/dummy || true
+          dpkg -i libwhisper-dev*.deb || true
 
       - name: Copy debian files
         run: cp -r packaging/debian .
@@ -91,7 +98,7 @@ jobs:
         run: |
           mkdir -p ~/rpmbuild/{SOURCES,SPECS,RPMS,BUILD,SRPMS}
           cp packaging/fedora/jarvis.spec ~/rpmbuild/SPECS/
-          tar czf ~/rpmbuild/SOURCES/jarvis-0.1.1.tar.gz --exclude=.git --exclude=packaging .
+          tar czf ~/rpmbuild/SOURCES/plasma6-jarvis-0.1.1.tar.gz --exclude=.git --exclude=packaging .
           rpmbuild -ba ~/rpmbuild/SPECS/jarvis.spec
 
       - name: Package .rpm
@@ -125,7 +132,7 @@ jobs:
             libplasma ki18n kconfig \
             pipewire git
 
-      - name: Build whisper.cpp
+      - name: Build and install whisper.cpp
         run: |
           git clone --depth 1 https://github.com/ggerganov/whisper.cpp.git /tmp/whisper.cpp
           cmake -B /tmp/whisper.cpp/build -S /tmp/whisper.cpp \
