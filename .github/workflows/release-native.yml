@@ -87,7 +87,7 @@ jobs:
 
       - name: Build RPM
         run: |
-          mkdir -p ~/rpmbuild/SOURCES
+          mkdir -p ~/rpmbuild/{SOURCES,SPECS,RPMS,BUILD,SRPMS}
           cp packaging/fedora/jarvis.spec ~/rpmbuild/SPECS/
           tar czf ~/rpmbuild/SOURCES/jarvis-0.1.1.tar.gz --exclude=.git --exclude=packaging .
           rpmbuild -ba ~/rpmbuild/SPECS/jarvis.spec
@@ -136,8 +136,10 @@ jobs:
 
       - name: Build Arch package
         run: |
-          cp packaging/arch/PKGBUILD .
-          makepkg -s --noconfirm
+          # Create non-root user for makepkg
+          useradd -m builder
+          chown -R builder:builder .
+          sudo -u builder makepkg -s --noconfirm
 
       - name: Package .pkg.tar.zst
         id: package
