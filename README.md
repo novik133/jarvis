@@ -3,7 +3,7 @@
   <img src="https://img.shields.io/badge/Qt-6.0+-green?style=for-the-badge&logo=qt&logoColor=white" alt="Qt 6">
   <img src="https://img.shields.io/badge/C++-23-orange?style=for-the-badge&logo=cplusplus&logoColor=white" alt="C++23">
   <img src="https://img.shields.io/badge/License-GPL--3.0-red?style=for-the-badge" alt="GPL-3.0">
-  <img src="https://img.shields.io/badge/Version-0.1.1-brightgreen?style=for-the-badge" alt="Version 0.1.1">
+  <img src="https://img.shields.io/badge/Version-0.2.0-brightgreen?style=for-the-badge" alt="Version 0.2.0">
 </p>
 
 <h1 align="center">J.A.R.V.I.S.</h1>
@@ -63,7 +63,9 @@
 | Feature | Description |
 |---------|-------------|
 | **Local LLM Chat** | Conversational AI via llama.cpp — no cloud, no API keys |
-| **Wake Word** | Say "Jarvis" to activate voice commands (whisper.cpp, CPU-only) |
+| **Self-Contained** | Bundled llama.cpp + whisper.cpp — no separate installs needed |
+| **Bundled LLM Server** | llama-server included, start/stop from settings UI |
+| **Wake Word** | Say "Jarvis" to activate voice commands (bundled whisper.cpp, CPU-only) |
 | **Voice Commands** | 14 built-in commands + fully customizable mappings |
 | **System Interaction** | LLM can open apps, run commands, write files, type text |
 | **Text-to-Speech** | Piper TTS with downloadable voices (espeak-ng fallback) |
@@ -78,8 +80,10 @@
 
 ```bash
 # Arch Linux / Manjaro
+sudo pacman -U jarvis-plasmoid-0.2.0-1-x86_64.pkg.tar.zst
+# Or build from source:
 sudo pacman -S qt6-base qt6-declarative qt6-multimedia qt6-speech \
-  plasma-framework extra-cmake-modules ki18n piper-tts pipewire xdotool
+  plasma-framework extra-cmake-modules ki18n pipewire xdotool
 
 # Fedora
 sudo dnf install qt6-qtbase-devel qt6-qtdeclarative-devel qt6-qtmultimedia-devel \
@@ -91,7 +95,13 @@ sudo apt install qt6-base-dev qt6-declarative-dev qt6-multimedia-dev qt6-speech-
   libplasma-dev extra-cmake-modules libkf6i18n-dev piper pipewire xdotool
 ```
 
-### whisper.cpp Model
+### Bundled Components (No Separate Install Required)
+
+- **llama-server** — Automatically built from llama.cpp source during installation
+- **whisper.cpp** — Bundled and built from source (v1.7.3)  
+- **Piper TTS** — Optional download via settings UI
+
+### Whisper Model
 
 Download the tiny English model for wake word detection:
 
@@ -103,19 +113,62 @@ wget -O ~/.local/share/jarvis/ggml-tiny.en.bin \
 
 ### LLM Server
 
-J.A.R.V.I.S. connects to a local [llama.cpp](https://github.com/ggerganov/llama.cpp) server:
+J.A.R.V.I.S. now includes a bundled llama-server. You can start/stop it from the plasmoid settings, or use your own external server.
 
+To use the bundled server:
+1. Open J.A.R.V.I.S. settings → General tab
+2. Click "Start Bundled LLM Server" 
+3. Download a model (e.g., Qwen 2.5 0.5B) using the built-in downloader
+4. The server will load the model automatically
+
+Or continue using an external llama-server:
 ```bash
-# Download a model (example: Qwen2.5 1.5B)
-# Then start the server:
 llama-server -m your-model.gguf --port 8080
 ```
 
-Or download models directly from the plasmoid settings.
-
 ## Installation
 
-### Build from Source
+### Universal Installation (Recommended)
+Works on any Linux distribution with KDE Plasma:
+
+```bash
+# Clone the repository
+git clone https://github.com/novik133/jarvis.git
+cd jarvis
+
+# Run the universal installer (handles all dependencies automatically)
+chmod +x install.sh
+./install.sh
+```
+
+The universal installer automatically:
+- Detects your Linux distribution (Ubuntu, Debian, Fedora, openSUSE, Arch, etc.)
+- Installs all required dependencies using the system package manager
+- Builds llama.cpp and whisper.cpp from source
+- Installs J.A.R.V.I.S. to your system
+
+### Distribution-Specific Packages
+
+#### Arch Linux / Manjaro
+```bash
+# Install from AUR or build package
+makepkg -f
+sudo pacman -U jarvis-plasmoid-*.pkg.tar.zst
+```
+
+#### Manual Dependency Installation
+```bash
+# Fedora
+sudo dnf install qt6-qtbase-devel qt6-qtdeclarative-devel qt6-qtmultimedia-devel \
+  qt6-qtspeech-devel plasma-framework-devel extra-cmake-modules kf6-ki18n-devel \
+  piper pipewire xdotool
+
+# Ubuntu / Kubuntu (24.04+)
+sudo apt install qt6-base-dev qt6-declarative-dev qt6-multimedia-dev qt6-speech-dev \
+  libplasma-dev extra-cmake-modules libkf6i18n-dev piper pipewire xdotool
+```
+
+### Build from Source (if dependencies already installed)
 
 ```bash
 git clone https://github.com/novik133/jarvis.git
@@ -208,7 +261,7 @@ J.A.R.V.I.S. is designed to be lightweight:
 | Plugin (C++ backend) | ~15 MB | <1% | Modular, lazy initialization |
 | Whisper (wake word) | ~40 MB | ~2% | tiny.en model, 2 threads, 512 audio context |
 | Piper TTS | ~0 MB idle | 0% idle | Spawns only when speaking, exits after |
-| LLM Server | Separate | Separate | Not part of the plugin — user manages |
+| LLM Server | ~500 MB+ | Variable | Bundled llama-server — user starts via UI |
 
 - Whisper runs in a background thread, never blocks the UI
 - Piper TTS is a one-shot process per utterance (no persistent daemon)

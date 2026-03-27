@@ -4,6 +4,7 @@
 #include "audio/jarvisaudio.h"
 #include "system/jarvissystem.h"
 #include "commands/jarviscommands.h"
+#include "llm/jarvisllmmanager.h"
 
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -33,6 +34,7 @@ JarvisBackend::JarvisBackend(QObject *parent)
     m_audio = new JarvisAudio(m_settings, this);
     m_system = new JarvisSystem(this);
     m_commands = new JarvisCommands(this);
+    m_llmManager = new JarvisLlmManager(m_settings, this);
 
     connectModuleSignals();
 
@@ -114,6 +116,32 @@ void JarvisBackend::connectModuleSignals()
     connect(m_commands, &JarvisCommands::commandOutput, this, [this](const QString &output) {
         addToChatHistory("jarvis", output);
     });
+
+    // LLM Manager → Backend
+    connect(m_llmManager, &JarvisLlmManager::serverRunningChanged, this, [this]() {
+        emit llmServerRunningChanged();
+        if (m_llmManager->isServerRunning()) {
+            // Update settings URL to point to bundled server
+            m_settings->setLlmServerUrl(m_llmManager->serverUrl());
+            setStatus(QStringLiteral("Bundled LLM server started on port %1.").arg(m_llmManager->serverPort()));
+            checkConnection();
+        }
+    });
+    connect(m_llmManager, &JarvisLlmManager::serverError, this, [this](const QString &error) {
+        setStatus(QStringLiteral("LLM server error: ") + error);
+    });
+    connect(m_llmManager, &JarvisLlmManager::serverStopped, this, [this]() {
+        setStatus(QStringLiteral("LLM server stopped."));
+    });
+
+    // Whisper model activation → reload whisper
+    connect(m_settings, &JarvisSettings::whisperModelActivated, this, [this](const QString &modelPath) {
+        Q_UNUSED(modelPath)
+        setStatus(QStringLiteral("Whisper model changed. Restart required for wake word."));
+    });
+    connect(m_settings, &JarvisSettings::currentWhisperModelChanged, this, &JarvisBackend::currentWhisperModelChanged);
+    connect(m_settings, &JarvisSettings::availableWhisperModelsChanged, this, &JarvisBackend::availableWhisperModelsChanged);
+    connect(m_settings, &JarvisSettings::piperInstalledChanged, this, &JarvisBackend::piperInstalledChanged);
 }
 
 // ─────────────────────────────────────────────
@@ -156,6 +184,12 @@ QString JarvisBackend::personalityPrompt() const { return m_settings->personalit
 
 QVariantList JarvisBackend::commandMappings() const { return m_commands->commandMappings(); }
 
+QVariantList JarvisBackend::availableWhisperModels() const { return m_settings->availableWhisperModels(); }
+QString JarvisBackend::currentWhisperModel() const { return m_settings->currentWhisperModel(); }
+bool JarvisBackend::piperInstalled() const { return m_settings->piperInstalled(); }
+bool JarvisBackend::llmServerBundled() const { return m_settings->llmServerBundled(); }
+bool JarvisBackend::isLlmServerRunning() const { return m_llmManager->isServerRunning(); }
+
 // ─────────────────────────────────────────────
 // Invokable delegates
 // ─────────────────────────────────────────────
@@ -182,6 +216,14 @@ void JarvisBackend::setAutoStartWakeWord(bool enabled) { m_settings->setAutoStar
 void JarvisBackend::setPersonalityPrompt(const QString &prompt) { m_settings->setPersonalityPrompt(prompt); }
 void JarvisBackend::cancelDownload() { m_settings->cancelDownload(); }
 
+void JarvisBackend::downloadWhisperModel(const QString &modelId) { m_settings->downloadWhisperModel(modelId); }
+void JarvisBackend::setActiveWhisperModel(const QString &modelId) { m_settings->setActiveWhisperModel(modelId); }
+void JarvisBackend::downloadPiperBinary() { m_settings->downloadPiperBinary(); }
+
+void JarvisBackend::startLlmServer() { m_llmManager->startServer(); }
+void JarvisBackend::stopLlmServer() { m_llmManager->stopServer(); }
+void JarvisBackend::restartLlmServer() { m_llmManager->restartServer(); }
+
 void JarvisBackend::testVoice(const QString &voiceId)
 {
     const QString voicesDir = m_settings->jarvisDataDir() + QStringLiteral("/piper-voices");
@@ -191,9 +233,11 @@ void JarvisBackend::testVoice(const QString &voiceId)
         return;
     }
 
-    QString piperBin;
-    for (const auto &path : {"/usr/lib/piper-tts/bin/piper", "/usr/bin/piper", "/usr/local/bin/piper"}) {
-        if (QFile::exists(QString::fromLatin1(path))) { piperBin = QString::fromLatin1(path); break; }
+    QString piperBin = m_settings->piperBinaryPath();
+    if (piperBin.isEmpty()) {
+        for (const auto &path : {"/usr/lib/piper-tts/bin/piper", "/usr/bin/piper", "/usr/local/bin/piper"}) {
+            if (QFile::exists(QString::fromLatin1(path))) { piperBin = QString::fromLatin1(path); break; }
+        }
     }
     if (piperBin.isEmpty()) {
         qWarning() << "[JARVIS] testVoice: piper binary not found";

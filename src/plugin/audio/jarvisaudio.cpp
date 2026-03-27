@@ -300,6 +300,27 @@ void JarvisAudio::initWhisper()
 
 QString JarvisAudio::findWhisperModel() const
 {
+    // 1. Use the settings-managed whisper model path (downloaded from settings UI)
+    const QString settingsPath = m_settings->whisperModelPath();
+    if (!settingsPath.isEmpty() && QFileInfo::exists(settingsPath)) {
+        return settingsPath;
+    }
+
+    // 2. Search the managed whisper-models directory
+    const QString whisperDir = m_settings->jarvisDataDir() + QStringLiteral("/whisper-models");
+    const QStringList managedPaths = {
+        whisperDir + QStringLiteral("/ggml-tiny.en.bin"),
+        whisperDir + QStringLiteral("/ggml-tiny.bin"),
+        whisperDir + QStringLiteral("/ggml-base.en.bin"),
+        whisperDir + QStringLiteral("/ggml-base.bin"),
+        whisperDir + QStringLiteral("/ggml-small.en.bin"),
+        whisperDir + QStringLiteral("/ggml-small.bin"),
+    };
+    for (const auto &path : managedPaths) {
+        if (QFileInfo::exists(path)) return path;
+    }
+
+    // 3. Legacy fallback paths
     const QStringList searchPaths = {
         QDir::homePath() + QStringLiteral("/.local/share/jarvis/ggml-tiny.bin"),
         QDir::homePath() + QStringLiteral("/.local/share/jarvis/ggml-tiny.en.bin"),

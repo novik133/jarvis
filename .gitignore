@@ -1,6 +1,14 @@
 # Build directories
 build/
+build-*/
 cmake-build-*/
+
+# Package build artifacts
+pkg/
+src/
+*.pkg.tar.zst
+*.pkg.tar.xz
+*.pkg.tar
 
 # IDE and editor files
 .idea/
@@ -44,3 +52,23 @@ Thumbs.db
 
 # Build artifacts
 *.plasmoid
+
+# Dependencies (built during compilation)
+llama-src/
+llama-build/
+llama-bin/
+deps/
+_external/
+
+# Downloaded models and user data
+*.gguf
+*.bin
+*.onnx
+models/
+piper-voices/
+whisper-models/
+
+# Audio files
+*.wav
+*.mp3
+*.ogg

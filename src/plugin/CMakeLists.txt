@@ -6,6 +6,7 @@ set(jarvis_plugin_SRCS
     audio/jarvisaudio.cpp
     system/jarvissystem.cpp
     commands/jarviscommands.cpp
+    llm/jarvisllmmanager.cpp
 )
 
 add_library(jarvis_plugin SHARED ${jarvis_plugin_SRCS})

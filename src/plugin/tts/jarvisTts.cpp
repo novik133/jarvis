@@ -24,14 +24,22 @@ JarvisTts::~JarvisTts()
 
 void JarvisTts::initTts()
 {
-    const QStringList piperPaths = {
-        QStringLiteral("/usr/lib/piper-tts/bin/piper"),
-        QStringLiteral("/usr/bin/piper"),
-        QStringLiteral("/usr/local/bin/piper"),
-    };
+    // Use settings-managed Piper binary path (bundled or system)
+    const QString settingsBin = m_settings->piperBinaryPath();
+    if (!settingsBin.isEmpty() && QFile::exists(settingsBin)) {
+        m_piperBin = settingsBin;
+    } else {
+        // Fallback search
+        const QStringList piperPaths = {
+            m_settings->jarvisDataDir() + QStringLiteral("/piper/piper"),
+            QStringLiteral("/usr/lib/piper-tts/bin/piper"),
+            QStringLiteral("/usr/bin/piper"),
+            QStringLiteral("/usr/local/bin/piper"),
+        };
 
-    for (const auto &path : piperPaths) {
-        if (QFile::exists(path)) { m_piperBin = path; break; }
+        for (const auto &path : piperPaths) {
+            if (QFile::exists(path)) { m_piperBin = path; break; }
+        }
     }
 
     const QString modelPath = m_settings->piperModelPath();

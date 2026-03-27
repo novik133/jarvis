@@ -12,7 +12,7 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=native -O3")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -O3")
 
 set(QT_DEFAULT_MAJOR_VERSION 6)
-set(QT_MAJOR_VERSION 6)
+set(CMAKE_PROJECT_VERSION "0.2.0")
 
 find_package(ECM REQUIRED NO_MODULE)
 set(CMAKE_MODULE_PATH ${ECM_MODULE_PATH})
@@ -38,15 +38,57 @@ find_package(KF6 REQUIRED COMPONENTS
 
 find_package(Plasma REQUIRED)
 
-# whisper.cpp - lightweight local speech recognition
-find_library(WHISPER_LIB NAMES whisper PATHS /usr/local/lib /usr/lib)
-find_path(WHISPER_INC whisper.h PATHS /usr/local/include /usr/include)
-if(NOT WHISPER_LIB OR NOT WHISPER_INC)
-    message(FATAL_ERROR "whisper.cpp not found. Install it: https://github.com/ggerganov/whisper.cpp")
-endif()
-set(WHISPER_LIBRARIES ${WHISPER_LIB})
-set(WHISPER_INCLUDE_DIRS ${WHISPER_INC})
-message(STATUS "Found whisper: ${WHISPER_LIB}")
+# ─────────────────────────────────────────────
+# Bundled whisper.cpp (built from source)
+# ─────────────────────────────────────────────
+include(FetchContent)
+
+FetchContent_Declare(
+    whisper
+    GIT_REPOSITORY https://github.com/ggerganov/whisper.cpp.git
+    GIT_TAG        v1.7.3
+    GIT_SHALLOW    TRUE
+)
+
+set(WHISPER_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(WHISPER_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON CACHE BOOL "" FORCE)
+
+FetchContent_MakeAvailable(whisper)
+
+set(WHISPER_LIBRARIES whisper)
+set(WHISPER_INCLUDE_DIRS ${whisper_SOURCE_DIR}/include ${whisper_SOURCE_DIR})
+message(STATUS "Bundled whisper.cpp from: ${whisper_SOURCE_DIR}")
+
+# ─────────────────────────────────────────────
+# Build and bundle llama.cpp from source
+# Automatically builds during package compilation
+# ─────────────────────────────────────────────
+# Use ExecuteProcess to build llama.cpp separately
+configure_file(
+    ${CMAKE_SOURCE_DIR}/cmake/BuildLlama.cmake.in
+    ${CMAKE_BINARY_DIR}/build_llama.cmake
+    @ONLY
+)
+
+# Custom command to build llama-server
+add_custom_command(
+    OUTPUT ${CMAKE_BINARY_DIR}/llama-server
+    COMMAND ${CMAKE_COMMAND} -P ${CMAKE_BINARY_DIR}/build_llama.cmake
+    COMMENT "Building llama.cpp from source"
+)
+
+# Custom target to ensure llama-server is built
+add_custom_target(
+    build-llama-server ALL
+    DEPENDS ${CMAKE_BINARY_DIR}/llama-server
+)
+
+# Install the built llama-server
+install(PROGRAMS ${CMAKE_BINARY_DIR}/llama-server DESTINATION libexec/jarvis)
+
+message(STATUS "Will build llama.cpp from source during compilation")
 
 # Install the plasmoid package
 plasma_install_package(package org.kde.plasma.jarvis)

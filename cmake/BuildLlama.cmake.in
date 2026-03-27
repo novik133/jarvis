@@ -1,0 +1,81 @@
+# CMake script to build llama.cpp from source
+# This will be executed during the main build process
+
+# Set variables
+set(LLAMA_VERSION "b8533")
+set(LLAMA_SOURCE_DIR "@CMAKE_BINARY_DIR@/llama-src")
+set(LLAMA_BUILD_DIR "@CMAKE_BINARY_DIR@/llama-build")
+set(LLAMA_OUTPUT "@CMAKE_BINARY_DIR@/llama-server")
+
+# Check if llama-server already exists
+if(EXISTS "${LLAMA_OUTPUT}")
+    message(STATUS "llama-server already exists, skipping build")
+    return()
+endif()
+
+# Create build directory
+file(MAKE_DIRECTORY "${LLAMA_BUILD_DIR}")
+
+# Clone llama.cpp if not already cloned
+if(NOT EXISTS "${LLAMA_SOURCE_DIR}/CMakeLists.txt")
+    message(STATUS "Cloning llama.cpp repository...")
+    execute_process(
+        COMMAND git clone --depth 1 --branch ${LLAMA_VERSION} https://github.com/ggml-org/llama.cpp.git "${LLAMA_SOURCE_DIR}"
+        RESULT_VARIABLE GIT_RESULT
+        WORKING_DIRECTORY "@CMAKE_BINARY_DIR@"
+    )
+    if(NOT GIT_RESULT EQUAL 0)
+        message(FATAL_ERROR "Failed to clone llama.cpp repository")
+    endif()
+endif()
+
+# Configure llama.cpp build
+message(STATUS "Configuring llama.cpp build...")
+execute_process(
+    COMMAND @CMAKE_COMMAND@ -B ${LLAMA_BUILD_DIR} -S ${LLAMA_SOURCE_DIR}
+        -DLLAMA_BUILD_EXAMPLES=OFF
+        -DLLAMA_BUILD_TESTS=OFF
+        -DLLAMA_BUILD_SERVER=ON
+        -DLLAMA_SERVER_SSL=OFF
+        -DGGML_NATIVE=OFF
+        -DGGML_CUDA=OFF
+        -DGGML_VULKAN=OFF
+        -DGGML_METAL=OFF
+        -DGGML_OPENMP=OFF
+        -DBUILD_SHARED_LIBS=OFF
+        -DCMAKE_BUILD_TYPE=Release
+        -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+    RESULT_VARIABLE CONFIG_RESULT
+    WORKING_DIRECTORY "@CMAKE_BINARY_DIR@"
+)
+if(NOT CONFIG_RESULT EQUAL 0)
+    message(FATAL_ERROR "Failed to configure llama.cpp build")
+endif()
+
+# Build llama-server
+message(STATUS "Building llama-server...")
+execute_process(
+    COMMAND @CMAKE_COMMAND@ --build ${LLAMA_BUILD_DIR} --target llama-server -j@CMAKE_BUILD_PARALLEL_LEVEL@
+    RESULT_VARIABLE BUILD_RESULT
+    WORKING_DIRECTORY "@CMAKE_BINARY_DIR@"
+)
+if(NOT BUILD_RESULT EQUAL 0)
+    message(FATAL_ERROR "Failed to build llama-server")
+endif()
+
+# Copy the built binary to the expected location
+execute_process(
+    COMMAND @CMAKE_COMMAND@ -E copy ${LLAMA_BUILD_DIR}/bin/llama-server ${LLAMA_OUTPUT}
+    RESULT_VARIABLE COPY_RESULT
+)
+if(NOT COPY_RESULT EQUAL 0)
+    message(FATAL_ERROR "Failed to copy llama-server")
+endif()
+
+# Make it executable
+execute_process(
+    COMMAND chmod +x ${LLAMA_OUTPUT}
+    RESULT_VARIABLE CHMOD_RESULT
+)
+
+message(STATUS "llama-server built successfully at ${LLAMA_OUTPUT}")

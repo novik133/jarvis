@@ -19,8 +19,12 @@ public:
     [[nodiscard]] QString llmServerUrl() const { return m_llmServerUrl; }
     [[nodiscard]] QString currentModelName() const { return m_currentModelName; }
     [[nodiscard]] QString currentVoiceName() const { return m_currentVoiceName; }
+    [[nodiscard]] QString currentWhisperModel() const { return m_currentWhisperModel; }
     [[nodiscard]] QVariantList availableLlmModels() const { return m_availableLlmModels; }
     [[nodiscard]] QVariantList availableTtsVoices() const { return m_availableTtsVoices; }
+    [[nodiscard]] QVariantList availableWhisperModels() const { return m_availableWhisperModels; }
+    [[nodiscard]] bool piperInstalled() const { return m_piperInstalled; }
+    [[nodiscard]] bool llmServerBundled() const;
     [[nodiscard]] double downloadProgress() const { return m_downloadProgress; }
     [[nodiscard]] bool isDownloading() const { return m_downloading; }
     [[nodiscard]] QString downloadStatus() const { return m_downloadStatus; }
@@ -50,17 +54,29 @@ public:
     // Downloads
     void downloadLlmModel(const QString &modelId);
     void downloadTtsVoice(const QString &voiceId);
+    void downloadWhisperModel(const QString &modelId);
+    void downloadPiperBinary();
     void setActiveLlmModel(const QString &modelId);
     void setActiveTtsVoice(const QString &voiceId);
+    void setActiveWhisperModel(const QString &modelId);
     void cancelDownload();
+    
+    // Model management
+    void deleteLlmModel(const QString &modelId);
+    void deleteTtsVoice(const QString &voiceId);
+    void deleteWhisperModel(const QString &modelId);
 
     // Helpers
     [[nodiscard]] QString jarvisDataDir() const;
     [[nodiscard]] QString piperModelPath() const { return m_piperModelPath; }
+    [[nodiscard]] QString piperBinaryPath() const { return m_piperBinPath; }
+    [[nodiscard]] QString whisperModelPath() const { return m_whisperModelPath; }
     void populateModelList();
     void populateVoiceList();
+    void populateWhisperModelList();
     void fetchMoreModels();
     void fetchMoreVoices();
+    void detectPiperBinary();
 
 signals:
     void llmServerUrlChanged();
@@ -79,6 +95,11 @@ signals:
     void ttsVolumeChanged();
     void ttsMutedChanged();
     void voiceActivated(const QString &voiceId, const QString &onnxPath);
+    void currentWhisperModelChanged();
+    void availableWhisperModelsChanged();
+    void whisperModelActivated(const QString &modelPath);
+    void piperInstalledChanged();
+    void piperBinaryPathChanged();
 
 private:
     void loadSettings();
@@ -106,4 +127,11 @@ private:
     double m_ttsVolume{0.85};
     bool m_ttsMuted{false};
     QString m_piperModelPath;
+    QString m_piperBinPath;
+    bool m_piperInstalled{false};
+
+    // Whisper
+    QString m_currentWhisperModel;
+    QString m_whisperModelPath;
+    QVariantList m_availableWhisperModels;
 };

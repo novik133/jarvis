@@ -4,6 +4,9 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QNetworkRequest>
+#include <QStandardPaths>
+#include <QCoreApplication>
+#include <QProcess>
 
 JarvisSettings::JarvisSettings(QNetworkAccessManager *nam, QObject *parent)
     : QObject(parent)
@@ -12,6 +15,8 @@ JarvisSettings::JarvisSettings(QNetworkAccessManager *nam, QObject *parent)
     loadSettings();
     populateModelList();
     populateVoiceList();
+    populateWhisperModelList();
+    detectPiperBinary();
 }
 
 // ─────────────────────────────────────────────
@@ -62,6 +67,26 @@ void JarvisSettings::loadSettings()
             if (QFile::exists(path)) { m_piperModelPath = path; break; }
         }
     }
+
+    // Resolve whisper model path
+    m_currentWhisperModel = m_settings.value(QStringLiteral("audio/whisperModel"),
+                                              QStringLiteral("ggml-tiny.en")).toString();
+    const QString whisperDir = jarvisDataDir() + QStringLiteral("/whisper-models");
+    const QString whisperSaved = whisperDir + QStringLiteral("/") + m_currentWhisperModel + QStringLiteral(".bin");
+    if (QFile::exists(whisperSaved)) {
+        m_whisperModelPath = whisperSaved;
+    } else {
+        // Fallback search in legacy paths
+        const QStringList fallbackPaths = {
+            QDir::homePath() + QStringLiteral("/.local/share/jarvis/ggml-tiny.bin"),
+            QDir::homePath() + QStringLiteral("/.local/share/jarvis/ggml-tiny.en.bin"),
+            QStringLiteral("/usr/share/jarvis/ggml-tiny.bin"),
+            QStringLiteral("/usr/share/jarvis/ggml-tiny.en.bin"),
+        };
+        for (const auto &path : fallbackPaths) {
+            if (QFile::exists(path)) { m_whisperModelPath = path; break; }
+        }
+    }
 }
 
 void JarvisSettings::saveSettings()
@@ -78,6 +103,7 @@ void JarvisSettings::saveSettings()
     m_settings.setValue(QStringLiteral("tts/volume"), m_ttsVolume);
     m_settings.setValue(QStringLiteral("tts/muted"), m_ttsMuted);
     m_settings.setValue(QStringLiteral("chat/personalityPrompt"), m_personalityPrompt);
+    m_settings.setValue(QStringLiteral("audio/whisperModel"), m_currentWhisperModel);
     m_settings.sync();
 }
 
@@ -187,7 +213,8 @@ void JarvisSettings::setTtsMuted(bool muted)
 
 void JarvisSettings::populateModelList()
 {
-    m_availableLlmModels = {
+    // All available models
+    const QVariantList allModels = {
         QVariantMap{
             {QStringLiteral("id"), QStringLiteral("Qwen2.5-0.5B-Instruct-Q4_K_M")},
             {QStringLiteral("name"), QStringLiteral("Qwen 2.5 0.5B (Tiny)")},
@@ -232,21 +259,29 @@ void JarvisSettings::populateModelList()
         },
     };
 
+    // Only show downloaded models
+    m_availableLlmModels.clear();
     const QString modelsDir = jarvisDataDir() + QStringLiteral("/models");
     QDir().mkpath(modelsDir);
-    for (auto &v : m_availableLlmModels) {
+    
+    for (auto v : allModels) {
         auto map = v.toMap();
         const QString filename = map[QStringLiteral("id")].toString() + QStringLiteral(".gguf");
-        map[QStringLiteral("downloaded")] = QFile::exists(modelsDir + QStringLiteral("/") + filename);
-        map[QStringLiteral("active")] = (map[QStringLiteral("id")].toString() == m_currentModelName ||
+        const QString filePath = modelsDir + QStringLiteral("/") + filename;
+        
+        if (QFile::exists(filePath)) {
+            map[QStringLiteral("downloaded")] = true;
+            map[QStringLiteral("active")] = (map[QStringLiteral("id")].toString() == m_currentModelName ||
                                           map[QStringLiteral("name")].toString().contains(m_currentModelName));
-        v = map;
+            m_availableLlmModels.append(map);
+        }
     }
 }
 
 void JarvisSettings::populateVoiceList()
 {
-    m_availableTtsVoices = {
+    // All available voices
+    const QVariantList allVoices = {
         QVariantMap{
             {QStringLiteral("id"), QStringLiteral("en_GB-alan-medium")},
             {QStringLiteral("name"), QStringLiteral("Alan (British Male)")},
@@ -289,14 +324,21 @@ void JarvisSettings::populateVoiceList()
         },
     };
 
+    // Only show downloaded voices
+    m_availableTtsVoices.clear();
     const QString voicesDir = jarvisDataDir() + QStringLiteral("/piper-voices");
     QDir().mkpath(voicesDir);
-    for (auto &v : m_availableTtsVoices) {
+    
+    for (auto v : allVoices) {
         auto map = v.toMap();
         const QString filename = map[QStringLiteral("id")].toString() + QStringLiteral(".onnx");
-        map[QStringLiteral("downloaded")] = QFile::exists(voicesDir + QStringLiteral("/") + filename);
-        map[QStringLiteral("active")] = (map[QStringLiteral("id")].toString() == m_currentVoiceName);
-        v = map;
+        const QString filePath = voicesDir + QStringLiteral("/") + filename;
+        
+        if (QFile::exists(filePath)) {
+            map[QStringLiteral("downloaded")] = true;
+            map[QStringLiteral("active")] = (map[QStringLiteral("id")].toString() == m_currentVoiceName);
+            m_availableTtsVoices.append(map);
+        }
     }
 }
 
@@ -667,4 +709,389 @@ void JarvisSettings::cancelDownload()
     emit downloadingChanged();
     emit downloadProgressChanged();
     emit downloadStatusChanged();
+}
+
+// ─────────────────────────────────────────────
+// Whisper Model Management
+// ─────────────────────────────────────────────
+
+void JarvisSettings::populateWhisperModelList()
+{
+    m_availableWhisperModels = {
+        QVariantMap{
+            {QStringLiteral("id"), QStringLiteral("ggml-tiny.en")},
+            {QStringLiteral("name"), QStringLiteral("Tiny (English only)")},
+            {QStringLiteral("size"), QStringLiteral("75 MB")},
+            {QStringLiteral("url"), QStringLiteral("https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin")},
+            {QStringLiteral("desc"), QStringLiteral("Fastest, lowest accuracy, English only — ideal for wake word")}
+        },
+        QVariantMap{
+            {QStringLiteral("id"), QStringLiteral("ggml-tiny")},
+            {QStringLiteral("name"), QStringLiteral("Tiny (Multilingual)")},
+            {QStringLiteral("size"), QStringLiteral("75 MB")},
+            {QStringLiteral("url"), QStringLiteral("https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin")},
+            {QStringLiteral("desc"), QStringLiteral("Fastest, lowest accuracy, supports multiple languages")}
+        },
+        QVariantMap{
+            {QStringLiteral("id"), QStringLiteral("ggml-base.en")},
+            {QStringLiteral("name"), QStringLiteral("Base (English only)")},
+            {QStringLiteral("size"), QStringLiteral("142 MB")},
+            {QStringLiteral("url"), QStringLiteral("https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin")},
+            {QStringLiteral("desc"), QStringLiteral("Good balance of speed and accuracy, English only")}
+        },
+        QVariantMap{
+            {QStringLiteral("id"), QStringLiteral("ggml-base")},
+            {QStringLiteral("name"), QStringLiteral("Base (Multilingual)")},
+            {QStringLiteral("size"), QStringLiteral("142 MB")},
+            {QStringLiteral("url"), QStringLiteral("https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin")},
+            {QStringLiteral("desc"), QStringLiteral("Good balance, supports multiple languages")}
+        },
+        QVariantMap{
+            {QStringLiteral("id"), QStringLiteral("ggml-small.en")},
+            {QStringLiteral("name"), QStringLiteral("Small (English only)")},
+            {QStringLiteral("size"), QStringLiteral("466 MB")},
+            {QStringLiteral("url"), QStringLiteral("https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.en.bin")},
+            {QStringLiteral("desc"), QStringLiteral("High accuracy, English only — slower")}
+        },
+        QVariantMap{
+            {QStringLiteral("id"), QStringLiteral("ggml-small")},
+            {QStringLiteral("name"), QStringLiteral("Small (Multilingual)")},
+            {QStringLiteral("size"), QStringLiteral("466 MB")},
+            {QStringLiteral("url"), QStringLiteral("https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin")},
+            {QStringLiteral("desc"), QStringLiteral("High accuracy, multilingual — slower")}
+        },
+        QVariantMap{
+            {QStringLiteral("id"), QStringLiteral("ggml-medium.en")},
+            {QStringLiteral("name"), QStringLiteral("Medium (English only)")},
+            {QStringLiteral("size"), QStringLiteral("1.5 GB")},
+            {QStringLiteral("url"), QStringLiteral("https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.en.bin")},
+            {QStringLiteral("desc"), QStringLiteral("Very high accuracy, needs more RAM")}
+        },
+    };
+
+    const QString whisperDir = jarvisDataDir() + QStringLiteral("/whisper-models");
+    QDir().mkpath(whisperDir);
+    for (auto &v : m_availableWhisperModels) {
+        auto map = v.toMap();
+        const QString filename = map[QStringLiteral("id")].toString() + QStringLiteral(".bin");
+        map[QStringLiteral("downloaded")] = QFile::exists(whisperDir + QStringLiteral("/") + filename);
+        map[QStringLiteral("active")] = (map[QStringLiteral("id")].toString() == m_currentWhisperModel);
+        v = map;
+    }
+}
+
+void JarvisSettings::downloadWhisperModel(const QString &modelId)
+{
+    if (m_downloading) return;
+
+    QVariantMap targetModel;
+    for (const auto &v : std::as_const(m_availableWhisperModels)) {
+        auto map = v.toMap();
+        if (map[QStringLiteral("id")].toString() == modelId) {
+            targetModel = map;
+            break;
+        }
+    }
+    if (targetModel.isEmpty()) return;
+
+    const QString url = targetModel[QStringLiteral("url")].toString();
+    const QString whisperDir = jarvisDataDir() + QStringLiteral("/whisper-models");
+    QDir().mkpath(whisperDir);
+    const QString filePath = whisperDir + QStringLiteral("/") + modelId + QStringLiteral(".bin");
+
+    if (QFile::exists(filePath)) {
+        setActiveWhisperModel(modelId);
+        return;
+    }
+
+    m_downloading = true;
+    m_downloadProgress = 0.0;
+    m_downloadStatus = QStringLiteral("Downloading whisper model: ") + targetModel[QStringLiteral("name")].toString() + QStringLiteral("...");
+    emit downloadingChanged();
+    emit downloadProgressChanged();
+    emit downloadStatusChanged();
+
+    QNetworkRequest request{QUrl(url)};
+    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+    m_downloadReply = m_networkManager->get(request);
+
+    auto *outFile = new QFile(filePath + QStringLiteral(".part"), this);
+    outFile->open(QIODevice::WriteOnly);
+
+    connect(m_downloadReply, &QNetworkReply::readyRead, this, [this, outFile]() {
+        if (outFile->isOpen()) outFile->write(m_downloadReply->readAll());
+    });
+
+    connect(m_downloadReply, &QNetworkReply::downloadProgress, this, [this](qint64 received, qint64 total) {
+        if (total > 0) {
+            m_downloadProgress = static_cast<double>(received) / total;
+            m_downloadStatus = QStringLiteral("Downloading whisper model... %1 / %2 MB")
+                .arg(received / 1048576).arg(total / 1048576);
+            emit downloadProgressChanged();
+            emit downloadStatusChanged();
+        }
+    });
+
+    connect(m_downloadReply, &QNetworkReply::finished, this, [this, outFile, filePath, modelId]() {
+        outFile->close();
+        outFile->deleteLater();
+
+        if (m_downloadReply->error() == QNetworkReply::NoError) {
+            QFile::rename(filePath + QStringLiteral(".part"), filePath);
+            m_downloadStatus = QStringLiteral("Whisper model downloaded!");
+            setActiveWhisperModel(modelId);
+            populateWhisperModelList();
+        } else {
+            QFile::remove(filePath + QStringLiteral(".part"));
+            m_downloadStatus = QStringLiteral("Download failed: ") + m_downloadReply->errorString();
+        }
+
+        m_downloading = false;
+        m_downloadReply = nullptr;
+        emit downloadingChanged();
+        emit downloadStatusChanged();
+    });
+}
+
+void JarvisSettings::setActiveWhisperModel(const QString &modelId)
+{
+    const QString whisperDir = jarvisDataDir() + QStringLiteral("/whisper-models");
+    const QString modelPath = whisperDir + QStringLiteral("/") + modelId + QStringLiteral(".bin");
+
+    if (QFile::exists(modelPath)) {
+        m_whisperModelPath = modelPath;
+        m_currentWhisperModel = modelId;
+        saveSettings();
+        populateWhisperModelList();
+        emit currentWhisperModelChanged();
+        emit whisperModelActivated(modelPath);
+    }
+}
+
+// ─────────────────────────────────────────────
+// Piper Binary Management
+// ─────────────────────────────────────────────
+
+void JarvisSettings::detectPiperBinary()
+{
+    // Check bundled location first
+    const QStringList searchPaths = {
+        jarvisDataDir() + QStringLiteral("/piper/piper"),
+        QStringLiteral("/usr/libexec/jarvis/piper"),
+        QStringLiteral("/usr/lib/piper-tts/bin/piper"),
+        QStringLiteral("/usr/bin/piper"),
+        QStringLiteral("/usr/local/bin/piper"),
+    };
+
+    for (const auto &path : searchPaths) {
+        if (QFile::exists(path)) {
+            m_piperBinPath = path;
+            m_piperInstalled = true;
+            emit piperInstalledChanged();
+            emit piperBinaryPathChanged();
+            return;
+        }
+    }
+
+    // Check PATH
+    const QString systemPiper = QStandardPaths::findExecutable(QStringLiteral("piper"));
+    if (!systemPiper.isEmpty()) {
+        m_piperBinPath = systemPiper;
+        m_piperInstalled = true;
+        emit piperInstalledChanged();
+        emit piperBinaryPathChanged();
+        return;
+    }
+
+    m_piperInstalled = false;
+    m_piperBinPath.clear();
+}
+
+bool JarvisSettings::llmServerBundled() const
+{
+    // Always return true - llama-server is now built and bundled with the package
+    return true;
+}
+
+void JarvisSettings::downloadPiperBinary()
+{
+    if (m_downloading) return;
+
+    const QString piperDir = jarvisDataDir() + QStringLiteral("/piper");
+    QDir().mkpath(piperDir);
+
+    const QString piperBin = piperDir + QStringLiteral("/piper");
+    if (QFile::exists(piperBin)) {
+        m_piperBinPath = piperBin;
+        m_piperInstalled = true;
+        emit piperInstalledChanged();
+        emit piperBinaryPathChanged();
+        m_downloadStatus = QStringLiteral("Piper already installed!");
+        emit downloadStatusChanged();
+        return;
+    }
+
+    m_downloading = true;
+    m_downloadProgress = 0.0;
+    m_downloadStatus = QStringLiteral("Downloading Piper TTS engine...");
+    emit downloadingChanged();
+    emit downloadProgressChanged();
+    emit downloadStatusChanged();
+
+    // Download Piper release tarball for Linux x86_64
+    const QString url = QStringLiteral(
+        "https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_linux_x86_64.tar.gz");
+
+    QNetworkRequest request{QUrl(url)};
+    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+    m_downloadReply = m_networkManager->get(request);
+
+    const QString tarPath = piperDir + QStringLiteral("/piper.tar.gz");
+    auto *outFile = new QFile(tarPath, this);
+    outFile->open(QIODevice::WriteOnly);
+
+    connect(m_downloadReply, &QNetworkReply::readyRead, this, [this, outFile]() {
+        if (outFile->isOpen()) outFile->write(m_downloadReply->readAll());
+    });
+
+    connect(m_downloadReply, &QNetworkReply::downloadProgress, this, [this](qint64 received, qint64 total) {
+        if (total > 0) {
+            m_downloadProgress = static_cast<double>(received) / total;
+            m_downloadStatus = QStringLiteral("Downloading Piper... %1 / %2 MB")
+                .arg(received / 1048576).arg(total / 1048576);
+            emit downloadProgressChanged();
+            emit downloadStatusChanged();
+        }
+    });
+
+    connect(m_downloadReply, &QNetworkReply::finished, this, [this, outFile, tarPath, piperDir, piperBin]() {
+        outFile->close();
+        outFile->deleteLater();
+
+        if (m_downloadReply->error() == QNetworkReply::NoError) {
+            m_downloadStatus = QStringLiteral("Extracting Piper...");
+            emit downloadStatusChanged();
+
+            // Extract tar.gz — piper binary is inside piper/ subdirectory
+            auto *extractProc = new QProcess(this);
+            connect(extractProc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+                    this, [this, extractProc, tarPath, piperDir, piperBin](int exitCode, QProcess::ExitStatus) {
+                extractProc->deleteLater();
+                QFile::remove(tarPath);
+
+                if (exitCode == 0 && QFile::exists(piperBin)) {
+                    // Make executable
+                    QFile::setPermissions(piperBin,
+                        QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner |
+                        QFileDevice::ReadGroup | QFileDevice::ExeGroup |
+                        QFileDevice::ReadOther | QFileDevice::ExeOther);
+
+                    m_piperBinPath = piperBin;
+                    m_piperInstalled = true;
+                    m_downloadStatus = QStringLiteral("Piper installed successfully!");
+                    emit piperInstalledChanged();
+                    emit piperBinaryPathChanged();
+                } else {
+                    // The tarball extracts to piper/ subdir, try that path
+                    const QString altBin = piperDir + QStringLiteral("/piper/piper");
+                    if (QFile::exists(altBin)) {
+                        m_piperBinPath = altBin;
+                        m_piperInstalled = true;
+                        m_downloadStatus = QStringLiteral("Piper installed successfully!");
+                        emit piperInstalledChanged();
+                        emit piperBinaryPathChanged();
+                    } else {
+                        m_downloadStatus = QStringLiteral("Failed to extract Piper (exit code %1)").arg(exitCode);
+                    }
+                }
+                m_downloading = false;
+                m_downloadReply = nullptr;
+                emit downloadingChanged();
+                emit downloadStatusChanged();
+            });
+            extractProc->setWorkingDirectory(piperDir);
+            extractProc->start(QStringLiteral("tar"),
+                {QStringLiteral("xzf"), tarPath, QStringLiteral("--strip-components=1")});
+        } else {
+            QFile::remove(tarPath);
+            m_downloadStatus = QStringLiteral("Download failed: ") + m_downloadReply->errorString();
+            m_downloading = false;
+            m_downloadReply = nullptr;
+            emit downloadingChanged();
+            emit downloadStatusChanged();
+        }
+    });
+}
+
+// ─────────────────────────────────────────────
+// Model Management - Delete Functions
+// ─────────────────────────────────────────────
+
+void JarvisSettings::deleteLlmModel(const QString &modelId)
+{
+    const QString modelsDir = jarvisDataDir() + QStringLiteral("/models");
+    const QString filePath = modelsDir + QStringLiteral("/") + modelId + QStringLiteral(".gguf");
+    
+    if (QFile::exists(filePath)) {
+        QFile::remove(filePath);
+        
+        // If this was the active model, clear it
+        if (m_currentModelName == modelId) {
+            m_currentModelName.clear();
+            emit currentModelNameChanged();
+        }
+        
+        // Refresh the model list
+        populateModelList();
+    }
+}
+
+void JarvisSettings::deleteTtsVoice(const QString &voiceId)
+{
+    const QString voicesDir = jarvisDataDir() + QStringLiteral("/piper-voices");
+    const QString onnxPath = voicesDir + QStringLiteral("/") + voiceId + QStringLiteral(".onnx");
+    const QString jsonPath = onnxPath + QStringLiteral(".json");
+    
+    bool deleted = false;
+    if (QFile::exists(onnxPath)) {
+        QFile::remove(onnxPath);
+        deleted = true;
+    }
+    if (QFile::exists(jsonPath)) {
+        QFile::remove(jsonPath);
+        deleted = true;
+    }
+    
+    if (deleted) {
+        // If this was the active voice, clear it
+        if (m_currentVoiceName == voiceId) {
+            m_currentVoiceName.clear();
+            m_piperModelPath.clear();
+            emit currentVoiceNameChanged();
+            emit piperBinaryPathChanged();
+        }
+        
+        // Refresh the voice list
+        populateVoiceList();
+    }
+}
+
+void JarvisSettings::deleteWhisperModel(const QString &modelId)
+{
+    const QString whisperDir = jarvisDataDir() + QStringLiteral("/whisper-models");
+    const QString filePath = whisperDir + QStringLiteral("/") + modelId + QStringLiteral(".bin");
+    
+    if (QFile::exists(filePath)) {
+        QFile::remove(filePath);
+        
+        // If this was the active model, clear it
+        if (m_currentWhisperModel == modelId) {
+            m_currentWhisperModel.clear();
+            m_whisperModelPath.clear();
+            emit currentWhisperModelChanged();
+        }
+        
+        // Refresh the whisper model list
+        populateWhisperModelList();
+    }
 }

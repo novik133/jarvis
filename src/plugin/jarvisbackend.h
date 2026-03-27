@@ -19,6 +19,7 @@ class JarvisTts;
 class JarvisAudio;
 class JarvisSystem;
 class JarvisCommands;
+class JarvisLlmManager;
 
 class JarvisBackend : public QObject
 {
@@ -79,6 +80,17 @@ class JarvisBackend : public QObject
     // Commands
     Q_PROPERTY(QVariantList commandMappings READ commandMappings NOTIFY commandMappingsChanged)
 
+    // Whisper models
+    Q_PROPERTY(QVariantList availableWhisperModels READ availableWhisperModels NOTIFY availableWhisperModelsChanged)
+    Q_PROPERTY(QString currentWhisperModel READ currentWhisperModel NOTIFY currentWhisperModelChanged)
+
+    // Piper status
+    Q_PROPERTY(bool piperInstalled READ piperInstalled NOTIFY piperInstalledChanged)
+
+    // Bundled LLM server
+    Q_PROPERTY(bool llmServerBundled READ llmServerBundled CONSTANT)
+    Q_PROPERTY(bool llmServerRunning READ isLlmServerRunning NOTIFY llmServerRunningChanged)
+
 public:
     explicit JarvisBackend(QObject *parent = nullptr);
     ~JarvisBackend() override;
@@ -136,6 +148,17 @@ public:
     // Commands (delegated)
     [[nodiscard]] QVariantList commandMappings() const;
 
+    // Whisper (delegated)
+    [[nodiscard]] QVariantList availableWhisperModels() const;
+    [[nodiscard]] QString currentWhisperModel() const;
+
+    // Piper (delegated)
+    [[nodiscard]] bool piperInstalled() const;
+
+    // Bundled LLM server
+    [[nodiscard]] bool llmServerBundled() const;
+    [[nodiscard]] bool isLlmServerRunning() const;
+
     // Core invokables
     Q_INVOKABLE void sendMessage(const QString &message);
     Q_INVOKABLE void toggleWakeWord();
@@ -174,6 +197,18 @@ public:
     Q_INVOKABLE void testVoice(const QString &voiceId);
     Q_INVOKABLE void fetchMoreModels();
     Q_INVOKABLE void fetchMoreVoices();
+
+    // Whisper model management
+    Q_INVOKABLE void downloadWhisperModel(const QString &modelId);
+    Q_INVOKABLE void setActiveWhisperModel(const QString &modelId);
+
+    // Piper binary management
+    Q_INVOKABLE void downloadPiperBinary();
+
+    // Bundled LLM server management
+    Q_INVOKABLE void startLlmServer();
+    Q_INVOKABLE void stopLlmServer();
+    Q_INVOKABLE void restartLlmServer();
 
     // Commands invokables
     Q_INVOKABLE void addCommand(const QString &phrase, const QString &action, const QString &type);
@@ -216,6 +251,10 @@ signals:
     void commandMappingsChanged();
     void availableLlmModelsChanged();
     void availableTtsVoicesChanged();
+    void availableWhisperModelsChanged();
+    void currentWhisperModelChanged();
+    void piperInstalledChanged();
+    void llmServerRunningChanged();
 
 private slots:
     void onLlmStreamReadyRead();
@@ -293,6 +332,7 @@ private:
     JarvisAudio *m_audio{nullptr};
     JarvisSystem *m_system{nullptr};
     JarvisCommands *m_commands{nullptr};
+    JarvisLlmManager *m_llmManager{nullptr};
 
     // Network
     QNetworkAccessManager *m_networkManager{nullptr};

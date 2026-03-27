@@ -48,7 +48,7 @@ Item {
                             color: Kirigami.Theme.disabledTextColor
                         }
                         Label {
-                            text: i18n("Version %1", "0.1.1")
+                            text: i18n("Version %1", "0.2.0")
                             color: Kirigami.Theme.disabledTextColor
                             font.pointSize: Kirigami.Theme.smallFont.pointSize
                         }

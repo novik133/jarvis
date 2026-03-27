@@ -49,14 +49,128 @@ Item {
         }
 
         // ════════════════════════════════════════
-        // LLM SERVER
+        // DEPENDENCY STATUS
         // ════════════════════════════════════════
         Kirigami.FormLayout {
             Layout.fillWidth: true
 
             Kirigami.Separator {
                 Kirigami.FormData.isSection: true
-                Kirigami.FormData.label: i18n("LLM Server Connection")
+                Kirigami.FormData.label: i18n("Component Status")
+            }
+
+            Label {
+                text: i18n("All components are bundled with the plugin. No external installation required.")
+                wrapMode: Text.Wrap
+                Layout.fillWidth: true
+                color: Kirigami.Theme.disabledTextColor
+                font.pointSize: Kirigami.Theme.smallFont.pointSize
+            }
+
+            RowLayout {
+                Kirigami.FormData.label: i18n("LLM Engine:")
+                spacing: Kirigami.Units.smallSpacing
+                Kirigami.Icon {
+                    source: JarvisBackend.llmServerBundled ? "emblem-default" : "emblem-warning"
+                    implicitWidth: Kirigami.Units.iconSizes.small
+                    implicitHeight: Kirigami.Units.iconSizes.small
+                }
+                Label {
+                    text: JarvisBackend.llmServerBundled ? i18n("Bundled (llama.cpp)") : i18n("Not found")
+                    color: JarvisBackend.llmServerBundled ? Kirigami.Theme.positiveTextColor : Kirigami.Theme.negativeTextColor
+                    font.bold: true
+                }
+            }
+
+            RowLayout {
+                Kirigami.FormData.label: i18n("Speech Recognition:")
+                spacing: Kirigami.Units.smallSpacing
+                Kirigami.Icon {
+                    source: (JarvisBackend.currentWhisperModel !== "") ? "emblem-default" : "emblem-warning"
+                    implicitWidth: Kirigami.Units.iconSizes.small
+                    implicitHeight: Kirigami.Units.iconSizes.small
+                }
+                Label {
+                    text: (JarvisBackend.currentWhisperModel !== "") ? i18n("Bundled (whisper.cpp) — Model: %1", JarvisBackend.currentWhisperModel) : i18n("No whisper model — download one below")
+                    color: (JarvisBackend.currentWhisperModel !== "") ? Kirigami.Theme.positiveTextColor : Kirigami.Theme.negativeTextColor
+                    font.bold: true
+                }
+            }
+
+            RowLayout {
+                Kirigami.FormData.label: i18n("TTS Engine:")
+                spacing: Kirigami.Units.smallSpacing
+                Kirigami.Icon {
+                    source: JarvisBackend.piperInstalled ? "emblem-default" : "emblem-warning"
+                    implicitWidth: Kirigami.Units.iconSizes.small
+                    implicitHeight: Kirigami.Units.iconSizes.small
+                }
+                Label {
+                    text: JarvisBackend.piperInstalled ? i18n("Piper TTS installed") : i18n("Piper not found — download below")
+                    color: JarvisBackend.piperInstalled ? Kirigami.Theme.positiveTextColor : Kirigami.Theme.negativeTextColor
+                    font.bold: true
+                }
+                Button {
+                    visible: !JarvisBackend.piperInstalled
+                    text: i18n("Download Piper")
+                    icon.name: "download"
+                    enabled: !JarvisBackend.downloading
+                    onClicked: JarvisBackend.downloadPiperBinary()
+                }
+            }
+        }
+
+        // ════════════════════════════════════════
+        // BUNDLED LLM SERVER
+        // ════════════════════════════════════════
+        Kirigami.FormLayout {
+            Layout.fillWidth: true
+
+            Kirigami.Separator {
+                Kirigami.FormData.isSection: true
+                Kirigami.FormData.label: i18n("LLM Server (Bundled llama.cpp)")
+            }
+
+            Label {
+                text: i18n("The LLM server runs locally using the bundled llama.cpp. Download a model, then start the server.")
+                wrapMode: Text.Wrap
+                Layout.fillWidth: true
+                color: Kirigami.Theme.disabledTextColor
+                font.pointSize: Kirigami.Theme.smallFont.pointSize
+            }
+
+            RowLayout {
+                Kirigami.FormData.label: i18n("Server status:")
+                spacing: Kirigami.Units.smallSpacing
+                Kirigami.Icon {
+                    source: JarvisBackend.llmServerRunning ? "media-playback-start" : "media-playback-stop"
+                    implicitWidth: Kirigami.Units.iconSizes.small
+                    implicitHeight: Kirigami.Units.iconSizes.small
+                }
+                Label {
+                    text: JarvisBackend.llmServerRunning ? i18n("Running") : i18n("Stopped")
+                    color: JarvisBackend.llmServerRunning ? Kirigami.Theme.positiveTextColor : Kirigami.Theme.negativeTextColor
+                    font.bold: true
+                }
+            }
+
+            RowLayout {
+                Kirigami.FormData.label: i18n("Server controls:")
+                spacing: Kirigami.Units.smallSpacing
+                Button {
+                    text: JarvisBackend.llmServerRunning ? i18n("Restart Server") : i18n("Start Server")
+                    icon.name: JarvisBackend.llmServerRunning ? "view-refresh" : "media-playback-start"
+                    onClicked: {
+                        if (JarvisBackend.llmServerRunning) JarvisBackend.restartLlmServer()
+                        else JarvisBackend.startLlmServer()
+                    }
+                }
+                Button {
+                    text: i18n("Stop Server")
+                    icon.name: "media-playback-stop"
+                    enabled: JarvisBackend.llmServerRunning
+                    onClicked: JarvisBackend.stopLlmServer()
+                }
             }
 
             RowLayout {
@@ -77,7 +191,7 @@ Item {
             }
 
             RowLayout {
-                Kirigami.FormData.label: i18n("Status:")
+                Kirigami.FormData.label: i18n("Connection:")
                 spacing: Kirigami.Units.smallSpacing
                 Kirigami.Icon {
                     source: JarvisBackend.connected ? "network-connect" : "network-disconnect"
@@ -269,6 +383,112 @@ Item {
             Layout.leftMargin: Kirigami.Units.largeSpacing
             Layout.topMargin: Kirigami.Units.smallSpacing
             onClicked: JarvisBackend.fetchMoreVoices()
+        }
+
+        // ════════════════════════════════════════
+        // WHISPER MODELS (Speech Recognition)
+        // ════════════════════════════════════════
+        Kirigami.FormLayout {
+            Layout.fillWidth: true
+
+            Kirigami.Separator {
+                Kirigami.FormData.isSection: true
+                Kirigami.FormData.label: i18n("Whisper Models (Speech Recognition)")
+            }
+
+            Label {
+                text: i18n("Download a whisper model for wake word detection and voice commands. Smaller models are faster but less accurate.")
+                wrapMode: Text.Wrap
+                Layout.fillWidth: true
+                color: Kirigami.Theme.disabledTextColor
+                font.pointSize: Kirigami.Theme.smallFont.pointSize
+            }
+
+            Label {
+                Kirigami.FormData.label: i18n("Active model:")
+                text: JarvisBackend.currentWhisperModel || i18n("None")
+                font.bold: true
+            }
+        }
+
+        Repeater {
+            model: JarvisBackend.availableWhisperModels
+            delegate: Kirigami.AbstractCard {
+                Layout.fillWidth: true
+                Layout.leftMargin: Kirigami.Units.smallSpacing
+                Layout.rightMargin: Kirigami.Units.smallSpacing
+                contentItem: RowLayout {
+                    spacing: Kirigami.Units.largeSpacing
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 2
+                        RowLayout {
+                            spacing: Kirigami.Units.smallSpacing
+                            Label {
+                                text: modelData.name
+                                font.bold: true
+                            }
+                            Label {
+                                text: modelData.size
+                                color: Kirigami.Theme.disabledTextColor
+                                font.pointSize: Kirigami.Theme.smallFont.pointSize
+                            }
+                            Kirigami.Icon {
+                                visible: modelData.active
+                                source: "emblem-default"
+                                implicitWidth: Kirigami.Units.iconSizes.small
+                                implicitHeight: Kirigami.Units.iconSizes.small
+                            }
+                        }
+                        Label {
+                            text: modelData.desc
+                            color: Kirigami.Theme.disabledTextColor
+                            font.pointSize: Kirigami.Theme.smallFont.pointSize
+                            Layout.fillWidth: true
+                            wrapMode: Text.Wrap
+                        }
+                    }
+                    Button {
+                        text: modelData.active ? i18n("Active") : (modelData.downloaded ? i18n("Activate") : i18n("Download"))
+                        icon.name: modelData.active ? "checkmark" : (modelData.downloaded ? "media-playback-start" : "download")
+                        enabled: !modelData.active && !JarvisBackend.downloading
+                        highlighted: modelData.active
+                        onClicked: {
+                            if (modelData.downloaded) JarvisBackend.setActiveWhisperModel(modelData.id)
+                            else JarvisBackend.downloadWhisperModel(modelData.id)
+                        }
+                    }
+                }
+            }
+        }
+
+        // ════════════════════════════════════════
+        // PIPER TTS ENGINE
+        // ════════════════════════════════════════
+        Kirigami.FormLayout {
+            Layout.fillWidth: true
+            visible: !JarvisBackend.piperInstalled
+
+            Kirigami.Separator {
+                Kirigami.FormData.isSection: true
+                Kirigami.FormData.label: i18n("Piper TTS Engine")
+            }
+
+            Kirigami.InlineMessage {
+                Layout.fillWidth: true
+                visible: !JarvisBackend.piperInstalled
+                type: Kirigami.MessageType.Warning
+                text: i18n("Piper TTS is not installed. Download it to enable high-quality speech synthesis. Without Piper, the plugin falls back to espeak-ng.")
+
+                actions: [
+                    Kirigami.Action {
+                        icon.name: "download"
+                        text: i18n("Download Piper")
+                        enabled: !JarvisBackend.downloading
+                        onTriggered: JarvisBackend.downloadPiperBinary()
+                    }
+                ]
+            }
         }
 
         // ════════════════════════════════════════
