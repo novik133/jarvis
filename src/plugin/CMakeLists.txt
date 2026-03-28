@@ -30,5 +30,7 @@ target_link_libraries(jarvis_plugin
 
 target_compile_features(jarvis_plugin PUBLIC cxx_std_23)
 
-install(TARGETS jarvis_plugin DESTINATION ${KDE_INSTALL_QMLDIR}/org/kde/plasma/jarvis)
-install(FILES qmldir DESTINATION ${KDE_INSTALL_QMLDIR}/org/kde/plasma/jarvis)
+# Use Qt6 QML path explicitly
+set(JARVIS_QMLDIR "${CMAKE_INSTALL_PREFIX}/lib/qt6/qml")
+install(TARGETS jarvis_plugin DESTINATION ${JARVIS_QMLDIR}/org/kde/plasma/jarvis)
+install(FILES qmldir DESTINATION ${JARVIS_QMLDIR}/org/kde/plasma/jarvis)
