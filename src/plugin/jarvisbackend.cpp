@@ -142,6 +142,8 @@ void JarvisBackend::connectModuleSignals()
     connect(m_settings, &JarvisSettings::currentWhisperModelChanged, this, &JarvisBackend::currentWhisperModelChanged);
     connect(m_settings, &JarvisSettings::availableWhisperModelsChanged, this, &JarvisBackend::availableWhisperModelsChanged);
     connect(m_settings, &JarvisSettings::piperInstalledChanged, this, &JarvisBackend::piperInstalledChanged);
+    connect(m_settings, &JarvisSettings::availableLlmModelsChanged, this, &JarvisBackend::availableLlmModelsChanged);
+    connect(m_settings, &JarvisSettings::availableTtsVoicesChanged, this, &JarvisBackend::availableTtsVoicesChanged);
 }
 
 // ─────────────────────────────────────────────

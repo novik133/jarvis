@@ -213,8 +213,19 @@ void JarvisSettings::setTtsMuted(bool muted)
 
 void JarvisSettings::populateModelList()
 {
-    // All available models
-    const QVariantList allModels = {
+    m_availableLlmModels.clear();
+    const QString modelsDir = jarvisDataDir() + QStringLiteral("/models");
+    QDir().mkpath(modelsDir);
+    
+    // First, add all downloaded models from the directory
+    QDir dir(modelsDir);
+    QStringList filters;
+    filters << QStringLiteral("*.gguf");
+    dir.setNameFilters(filters);
+    QStringList downloadedFiles = dir.entryList(QDir::Files);
+    
+    // Build a map of all known models (hardcoded + fetched)
+    QVariantList allKnownModels = {
         QVariantMap{
             {QStringLiteral("id"), QStringLiteral("Qwen2.5-0.5B-Instruct-Q4_K_M")},
             {QStringLiteral("name"), QStringLiteral("Qwen 2.5 0.5B (Tiny)")},
@@ -258,24 +269,42 @@ void JarvisSettings::populateModelList()
             {QStringLiteral("desc"), QStringLiteral("Microsoft's compact powerhouse")}
         },
     };
-
-    // Only show downloaded models
-    m_availableLlmModels.clear();
-    const QString modelsDir = jarvisDataDir() + QStringLiteral("/models");
-    QDir().mkpath(modelsDir);
     
-    for (auto v : allModels) {
-        auto map = v.toMap();
-        const QString filename = map[QStringLiteral("id")].toString() + QStringLiteral(".gguf");
-        const QString filePath = modelsDir + QStringLiteral("/") + filename;
+    // Add models from fetchMoreModels if they were previously fetched
+    // (We'll add them here if they exist in the directory)
+    
+    // Process each downloaded file
+    for (const QString &filename : downloadedFiles) {
+        QString modelId = filename;
+        modelId.remove(QStringLiteral(".gguf"));
         
-        if (QFile::exists(filePath)) {
-            map[QStringLiteral("downloaded")] = true;
-            map[QStringLiteral("active")] = (map[QStringLiteral("id")].toString() == m_currentModelName ||
-                                          map[QStringLiteral("name")].toString().contains(m_currentModelName));
-            m_availableLlmModels.append(map);
+        // Try to find model info in known models
+        QVariantMap modelMap;
+        bool found = false;
+        for (const auto &v : allKnownModels) {
+            auto map = v.toMap();
+            if (map[QStringLiteral("id")].toString() == modelId) {
+                modelMap = map;
+                found = true;
+                break;
+            }
         }
+        
+        // If not found in known models, create basic info
+        if (!found) {
+            modelMap[QStringLiteral("id")] = modelId;
+            modelMap[QStringLiteral("name")] = modelId;
+            modelMap[QStringLiteral("size")] = QStringLiteral("Unknown");
+            modelMap[QStringLiteral("desc")] = QStringLiteral("Downloaded model");
+        }
+        
+        modelMap[QStringLiteral("downloaded")] = true;
+        modelMap[QStringLiteral("active")] = (modelId == m_currentModelName);
+        m_availableLlmModels.append(modelMap);
     }
+    
+    // Emit the signal to notify QML that the model list has changed
+    emit availableLlmModelsChanged();
 }
 
 void JarvisSettings::populateVoiceList()
@@ -340,6 +369,9 @@ void JarvisSettings::populateVoiceList()
             m_availableTtsVoices.append(map);
         }
     }
+    
+    // Emit signal to notify QML that voice list has changed
+    emit availableTtsVoicesChanged();
 }
 
 // ─────────────────────────────────────────────

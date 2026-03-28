@@ -5,6 +5,34 @@ All notable changes to J.A.R.V.I.S. Plasmoid will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-03-26
+
+### Added
+- **Bundled llama-server** — Pre-built llama.cpp server (b8533) included, no separate installation required
+- **Bundled whisper.cpp** — Built from source (v1.7.3) for wake word detection and transcription
+- **LLM Manager** — New `JarvisLlmManager` class to control bundled llama-server (start/stop/restart)
+- **Settings UI for Server Control** — Buttons in General settings to start/stop bundled LLM server
+- **Model Download Integration** — Download LLM models (GGUF) directly from settings UI with progress tracking
+- **Whisper Model Management** — Download and activate whisper models from settings
+- **Piper TTS Download** — Download Piper TTS voices directly from settings UI
+- **Self-Contained Architecture** — All AI components bundled, works out-of-the-box after installation
+- **Arch Linux Package** — PKGBUILD for building native Arch packages with bundled dependencies
+
+### Changed
+- **Dependency Management** — Switched from system-installed llama.cpp/whisper.cpp to bundled via CMake FetchContent
+- **Build System** — CMake now downloads and builds whisper.cpp from source, downloads pre-built llama-server
+- **Settings Persistence** — Model paths and Piper binary locations now managed through settings
+- **TTS Initialization** — Updated to use settings-managed Piper binary path with fallback to system paths
+- **Whisper Model Loading** — Prioritizes settings-managed model paths over legacy hardcoded paths
+
+### Technical
+- CMake FetchContent for whisper.cpp (v1.7.3) with static linking
+- CMake file(DOWNLOAD) for llama-server pre-built binary (b8533)
+- New `llm/jarvisllmmanager.cpp` for bundled server lifecycle management
+- QML bindings for server status, model download progress
+- Compiler flags: `-Wno-error` for compatibility with GCC 15
+- Position-independent code for whisper.cpp static libraries
+
 ## [0.1.1] - 2026-03-06
 
 ### Changed
@@ -60,5 +88,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Qt 6 (Quick, Qml, Network, TextToSpeech, Multimedia, Concurrent)
 - KF6::I18n for internationalization support
 
+[0.2.0]: https://github.com/novik133/jarvis/releases/tag/v0.2.0
 [0.1.1]: https://github.com/novik133/jarvis/releases/tag/v0.1.1
 [0.1.0]: https://github.com/novik133/jarvis/releases/tag/v0.1.0

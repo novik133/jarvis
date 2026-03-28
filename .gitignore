@@ -5,7 +5,7 @@ cmake-build-*/
 
 # Package build artifacts
 pkg/
-src/
+# src/ - Commented out for development access
 *.pkg.tar.zst
 *.pkg.tar.xz
 *.pkg.tar
@@ -60,7 +60,8 @@ llama-bin/
 deps/
 _external/
 
-# Downloaded models and user data
+# Note: src/ is excluded during packaging but needed for development
+# src/ - DO NOT ignore in git, needed for source control
 *.gguf
 *.bin
 *.onnx
