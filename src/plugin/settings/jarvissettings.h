@@ -82,6 +82,8 @@ signals:
     void llmServerUrlChanged();
     void currentModelNameChanged();
     void currentVoiceNameChanged();
+    void availableLlmModelsChanged();
+    void availableTtsVoicesChanged();
     void downloadProgressChanged();
     void downloadingChanged();
     void downloadStatusChanged();
