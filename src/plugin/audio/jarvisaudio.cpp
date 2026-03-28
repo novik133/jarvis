@@ -173,7 +173,7 @@ void JarvisAudio::processAudioBuffer()
         double a = qAbs(static_cast<double>(samples[i]));
         if (a > maxAmp) maxAmp = a;
     }
-    if (maxAmp < 100) return;
+    if (maxAmp < 500) return;  // Filter out quiet background noise
 
     m_whisperBusy = true;
     [[maybe_unused]] auto f = QtConcurrent::run([this, bufferCopy]() {
@@ -224,6 +224,17 @@ bool JarvisAudio::detectWakeWord(const QByteArray &audioData)
 
         QString transcript = QString::fromUtf8(text).toLower().trimmed();
         qDebug() << "[JARVIS] Whisper heard:" << transcript;
+
+        // Skip non-speech audio events (parentheses and brackets indicate sound effects)
+        if (transcript.startsWith('(') || transcript.startsWith('[') ||
+            transcript.contains("[blank_audio]") ||
+            transcript.contains("[music") || transcript.contains("(music") ||
+            transcript.contains("[gunshot") || transcript.contains("(gunshot") ||
+            transcript.contains("[door") || transcript.contains("(door") ||
+            transcript.contains("[wind") || transcript.contains("(wind") ||
+            transcript.isEmpty()) {
+            continue;
+        }
 
         if (transcript.contains(QStringLiteral("jarvis")) ||
             transcript.contains(QStringLiteral("jarves")) ||
